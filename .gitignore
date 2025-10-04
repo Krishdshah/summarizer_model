@@ -1,0 +1,18 @@
+# Python virtual environment
+venv/
+__pycache__/
+
+# Data folders/files
+/data/
+*.zip
+
+# NLTK and Webdriver cache
+nltk_data/
+.wdm/
+
+chromedriver-win64/
+*.exe
+
+# IDE files
+.vscode/
+.idea/

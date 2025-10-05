@@ -29,7 +29,7 @@ def run_preprocessing_with_vectors():
     """
     Extracts text and also creates vector embeddings for semantic search.
     """
-    print(f"🚀 Starting preprocessing with vector generation using '{MODEL_NAME}'...")
+    print(f" Starting preprocessing with vector generation using '{MODEL_NAME}'...")
     print("This may take a few minutes...")
 
     # 1. Load the AI model

@@ -1,6 +1,8 @@
 import pickle
 import numpy as np
 from fastapi import FastAPI, HTTPException
+# ADD THIS IMPORT
+from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -22,6 +24,17 @@ app = FastAPI(
     title="Semantic PDF Search API",
     description="An API to search and summarize research papers.",
     version="1.0.0",
+)
+
+# --- ADD THIS ENTIRE MIDDLEWARE SECTION ---
+# This section enables CORS, allowing your frontend to call the API.
+# The wildcard ["*"] allows requests from any origin.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- App State for Models and Data ---
@@ -114,7 +127,6 @@ def get_summary(filename: str):
             "title": doc_found['title'],
             "summary": summary
         }
-        print("API IS RUNNING")
     else:
         # If no document is found, raise a 404 error
         raise HTTPException(status_code=404, detail=f"Document with filename '{filename}' not found.")

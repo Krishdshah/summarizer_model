@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -5,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import nltk
+import uvicorn
 
 # --- Configuration ---
 DATA_FILE = 'processed_data_vectors.pkl'
@@ -17,6 +19,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# --- Allow all origins (for frontend integration) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,45 +29,60 @@ app.add_middleware(
 )
 
 # --- App State for Models and Data ---
+app.state.model = None
 app.state.documents = None
 app.state.doc_embeddings = None
-app.state.model = None
 
-# --- Startup Event ---
-@app.on_event("startup")
-def load_models_and_data():
-    """Load all necessary data and models when the API starts."""
-    # (The NLTK downloader can be removed, but it's harmless to keep)
-    try:
-        nltk.data.find("tokenizers/punkt")
-    except LookupError:
-        nltk.download("punkt")
 
-    print("Loading data and models...")
-    app.state.model = SentenceTransformer(MODEL_NAME)
-    
-    try:
-        with open(DATA_FILE, 'rb') as f:
-            app.state.documents = pickle.load(f)
-            app.state.doc_embeddings = np.array([doc['embedding'] for doc in app.state.documents])
-        print("Data and models loaded successfully.")
-    except FileNotFoundError:
-        print(f"FATAL ERROR: Data file '{DATA_FILE}' not found. Please run preprocess.py.")
-        app.state.documents = []
+# --- Lazy Loader Function ---
+def ensure_loaded():
+    """Ensure model and data are loaded (lazy load)."""
+    if app.state.model is None:
+        print("Loading SentenceTransformer model...")
+        app.state.model = SentenceTransformer(MODEL_NAME)
+        print("Model loaded successfully.")
 
-# --- API Endpoints ---
+    if app.state.documents is None:
+        print("Loading document data...")
+        try:
+            with open(DATA_FILE, 'rb') as f:
+                app.state.documents = pickle.load(f)
+                app.state.doc_embeddings = np.array(
+                    [doc['embedding'] for doc in app.state.documents]
+                )
+            print(f"Loaded {len(app.state.documents)} documents successfully.")
+        except FileNotFoundError:
+            print(f"FATAL ERROR: Data file '{DATA_FILE}' not found.")
+            app.state.documents = []
+            app.state.doc_embeddings = np.array([])
+
+
+# --- Routes ---
+
+@app.get("/")
+def root():
+    return {"message": "Semantic PDF Search API is running."}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/search/", summary="Search for relevant documents")
 def search_documents(q: str):
+    ensure_loaded()  # Lazy load model and data
+
     if not app.state.documents:
-        raise HTTPException(status_code=503, detail="Server is not ready, data not loaded.")
+        raise HTTPException(status_code=503, detail="Server not ready — data not loaded.")
 
     query_embedding = app.state.model.encode(q, convert_to_tensor=False).reshape(1, -1)
     similarities = cosine_similarity(query_embedding, app.state.doc_embeddings)[0]
-    
+
     all_results_with_scores = list(enumerate(similarities))
     relevant_results = [res for res in all_results_with_scores if res[1] > 0.3]
     sorted_results = sorted(relevant_results, key=lambda item: item[1], reverse=True)
-    
+
     results = []
     for index, score in sorted_results:
         doc = app.state.documents[index]
@@ -74,27 +92,29 @@ def search_documents(q: str):
             "pdf_filename": doc['pdf_filename'],
             "relevance_score": float(score)
         })
-        
+
     return {"query": q, "results": results}
 
 
 @app.get("/summarize/", summary="Generate a summary for a specific document")
 def get_summary(filename: str):
-    """
-    Finds a document by its `pdf_filename` and returns its pre-computed summary.
-    """
+    ensure_loaded()  # Lazy load model and data
+
     if not app.state.documents:
-        raise HTTPException(status_code=503, detail="Server is not ready, data not loaded.")
+        raise HTTPException(status_code=503, detail="Server not ready — data not loaded.")
 
     doc_found = next((doc for doc in app.state.documents if doc['pdf_filename'] == filename), None)
-    
     if doc_found:
-        # --- THE FIX IS HERE ---
-        # We now simply return the summary that's already in the data.
         return {
             "pdf_filename": filename,
             "title": doc_found['title'],
-            "summary": doc_found.get('summary', 'Summary not available.') # .get for safety
+            "summary": doc_found.get('summary', 'Summary not available.')
         }
     else:
         raise HTTPException(status_code=404, detail=f"Document with filename '{filename}' not found.")
+
+
+# --- Run App (Render-compatible) ---
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

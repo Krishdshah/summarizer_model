@@ -5,157 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Search & Summarizer</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 800px;
-            margin: 2rem;
-            padding: 2rem;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #1c1e21;
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .input-group {
-            margin-bottom: 1.5rem;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #4b4f56;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #dddfe2;
-            border-radius: 6px;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        button {
-            display: block;
-            width: 100%;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 6px;
-            background-color: #1877f2;
-            color: white;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        button:hover {
-            background-color: #166fe5;
-        }
-        .results-container {
-            margin-top: 2rem;
-        }
-        .result-item {
-            padding: 1.5rem;
-            border: 1px solid #dddfe2;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            background-color: #f7f8fa;
-        }
-        .result-item h3 {
-            margin-top: 0;
-            color: #1c1e21;
-        }
-        .result-item p {
-            margin: 0.5rem 0;
-            color: #606770;
-        }
-        .result-item a {
-            color: #1877f2;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .result-item .summarize-btn {
-            background-color: #42b72a;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            padding: 0.5rem 1rem;
-            width: auto;
-        }
-        .result-item .summarize-btn:hover {
-            background-color: #36a420;
-        }
-        .summary {
-            margin-top: 1rem;
-            padding: 1rem;
-            background-color: #e9ebee;
-            border-radius: 6px;
-            font-style: italic;
-            color: #4b4f56;
-            white-space: pre-wrap;
-        }
-        .status {
-            text-align: center;
-            color: #606770;
-            font-size: 1rem;
-            margin-top: 2rem;
-        }
+        body { font-family: sans-serif; margin: 0; padding: 2rem; background-color: #f0f2f5; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        .input-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; }
+        button { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 6px; background-color: #1877f2; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #166fe5; }
+        .result-item { padding: 1.5rem; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 1rem; }
+        .summarize-btn { background-color: #42b72a; margin-top: 1rem; font-size: 0.9rem; padding: 0.5rem 1rem; width: auto; }
+        .summarize-btn:hover { background-color: #36a420; }
+        .summary { margin-top: 1rem; padding: 1rem; background-color: #e9ebee; border-radius: 6px; white-space: pre-wrap; }
+        .status { text-align: center; color: #606770; font-size: 1rem; margin-top: 2rem; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔬 PDF Search & Summarizer</h1>
-
         <div class="input-group">
             <label for="apiUrl">API URL</label>
             <input type="text" id="apiUrl" placeholder="https://your-service-name.onrender.com">
         </div>
-
         <div class="input-group">
             <label for="searchQuery">Search Query</label>
             <input type="text" id="searchQuery" placeholder="e.g., bone loss in space">
         </div>
-
         <button onclick="handleSearch()">Search</button>
-
-        <div class="results-container" id="results"></div>
-        <div class="status" id="status"></div>
+        <div id="results"></div>
+        <div id="status"></div>
     </div>
 
     <script>
-        // --- API Interaction Logic ---
-
         const apiUrlInput = document.getElementById('apiUrl');
         const searchQueryInput = document.getElementById('searchQuery');
         const resultsDiv = document.getElementById('results');
         const statusDiv = document.getElementById('status');
 
-        // Function to handle the search request
         async function handleSearch() {
             const baseUrl = apiUrlInput.value.trim();
             const query = searchQueryInput.value.trim();
-
-            if (!baseUrl || !query) {
-                alert("Please provide both the API URL and a search query.");
-                return;
-            }
+            if (!baseUrl || !query) { alert("Please provide both API URL and a search query."); return; }
 
             statusDiv.textContent = "Searching...";
             resultsDiv.innerHTML = "";
 
             try {
                 const response = await fetch(`${baseUrl}/search/?q=${encodeURIComponent(query)}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const data = await response.json();
                 displayResults(data.results);
             } catch (error) {
@@ -163,19 +60,14 @@
             }
         }
 
-        // Function to display the search results on the page
         function displayResults(results) {
-            if (results.length === 0) {
-                statusDiv.textContent = "No documents found.";
-                return;
-            }
+            if (results.length === 0) { statusDiv.textContent = "No documents found."; return; }
             statusDiv.textContent = "";
 
             results.forEach((item, index) => {
                 const resultItem = document.createElement('div');
                 resultItem.className = 'result-item';
                 resultItem.id = `result-${index}`;
-                
                 resultItem.innerHTML = `
                     <h3>${item.title}</h3>
                     <p><strong>Relevance Score:</strong> ${item.relevance_score.toFixed(2)}</p>
@@ -189,28 +81,37 @@
             });
         }
 
-        // Function to handle the summarization request
+        // --- UPDATED FUNCTION ---
         async function handleSummarize(filename, resultId) {
             const baseUrl = apiUrlInput.value.trim();
             const resultItem = document.getElementById(resultId);
             const summaryContainer = resultItem.querySelector('.summary-container');
-            
-            if (!baseUrl) {
-                alert("Please provide the API URL.");
-                return;
-            }
+            if (!baseUrl) { alert("Please provide the API URL."); return; }
 
-            summaryContainer.innerHTML = `<p class="status">Generating summary...</p>`;
+            summaryContainer.innerHTML = `<p class="status">Generating summary... This may take up to a minute.</p>`;
 
             try {
-                const response = await fetch(`${baseUrl}/summarize/?filename=${encodeURIComponent(filename)}`);
+                // Set a timeout on the fetch request itself (e.g., 120 seconds)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds
+
+                const response = await fetch(`${baseUrl}/summarize/?filename=${encodeURIComponent(filename)}`, {
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
                 const data = await response.json();
                 summaryContainer.innerHTML = `<div class="summary">${data.summary}</div>`;
             } catch (error) {
-                summaryContainer.innerHTML = `<p class="status">Error: ${error.message}</p>`;
+                if (error.name === 'AbortError') {
+                    summaryContainer.innerHTML = `<p class="status">Error: The request timed out. The server is taking too long to respond.</p>`;
+                } else {
+                    summaryContainer.innerHTML = `<p class="status">Error: ${error.message}</p>`;
+                }
             }
         }
     </script>
